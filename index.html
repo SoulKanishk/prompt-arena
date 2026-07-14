@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompt Arena — Live Strategy Comparator</title>
+<style>
+  :root{
+    --pitch: #0d2818;
+    --pitch-line: #1e4530;
+    --chalk: #f2f0e6;
+    --card: #14311f;
+    --card-border: #2a5039;
+    --gold: #c9a24b;
+    --gold-bright: #e0b95c;
+    --red-card: #b3462c;
+    --yellow-card: #d9a441;
+    --mono: 'JetBrains Mono', 'Courier New', monospace;
+    --serif: 'Georgia', 'Times New Roman', serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background: var(--pitch);
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 79px, var(--pitch-line) 79px, var(--pitch-line) 80px);
+    color: var(--chalk);
+    font-family: var(--mono);
+    min-height:100vh;
+    padding: 0 0 80px;
+  }
+  header{
+    padding: 48px 24px 32px;
+    text-align:center;
+    border-bottom: 2px dashed var(--card-border);
+    position:relative;
+  }
+  .kicker{
+    font-size:12px;
+    letter-spacing:4px;
+    text-transform:uppercase;
+    color: var(--gold);
+    margin-bottom:14px;
+  }
+  h1{
+    font-family: var(--serif);
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight:700;
+    letter-spacing:-1px;
+    color: var(--chalk);
+  }
+  h1 span{ color: var(--gold-bright); font-style:italic; }
+  .subhead{
+    max-width:640px;
+    margin: 16px auto 0;
+    color: #9fb8a8;
+    font-size:14px;
+    line-height:1.6;
+  }
+  main{
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 40px 24px 0;
+  }
+  .panel{
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 4px;
+    padding: 28px;
+    margin-bottom: 28px;
+  }
+  .panel-title{
+    font-size:11px;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    color: var(--gold);
+    margin-bottom: 16px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .panel-title::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background: var(--card-border);
+  }
+  label{
+    display:block;
+    font-size:12px;
+    color:#9fb8a8;
+    margin-bottom:8px;
+    letter-spacing:0.5px;
+  }
+  input[type="password"], textarea{
+    width:100%;
+    background: #0a1f14;
+    border: 1px solid var(--card-border);
+    color: var(--chalk);
+    font-family: var(--mono);
+    font-size:14px;
+    padding: 12px 14px;
+    border-radius:3px;
+    resize: vertical;
+    transition: border-color 0.2s;
+  }
+  input[type="password"]:focus, textarea:focus{
+    outline:none;
+    border-color: var(--gold);
+  }
+  textarea{ min-height:120px; line-height:1.5; }
+  .key-row{
+    display:flex;
+    gap:12px;
+    align-items:flex-end;
+    flex-wrap:wrap;
+  }
+  .key-row > div{ flex:1; min-width:220px; }
+  .hint{
+    font-size:11px;
+    color:#6b8577;
+    margin-top:6px;
+  }
+  .hint a{ color: var(--gold); }
+  .field-gap{ margin-top:20px; }
+  button.run{
+    background: var(--gold);
+    color: #0d2818;
+    border:none;
+    font-family: var(--mono);
+    font-weight:700;
+    font-size:14px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    padding: 14px 28px;
+    border-radius:3px;
+    cursor:pointer;
+    margin-top:20px;
+    transition: background 0.15s, transform 0.1s;
+  }
+  button.run:hover{ background: var(--gold-bright); }
+  button.run:active{ transform: scale(0.98); }
+  button.run:disabled{ background:#4a5750; color:#8a988f; cursor:not-allowed; }
+
+  .presets{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .preset-chip{
+    font-size:11px;
+    color:#9fb8a8;
+    background:#0a1f14;
+    border:1px solid var(--card-border);
+    padding:6px 10px;
+    border-radius:20px;
+    cursor:pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .preset-chip:hover{ border-color: var(--gold); color: var(--gold); }
+
+  .error-box{
+    background: rgba(179,70,44,0.15);
+    border:1px solid var(--red-card);
+    color: #f0b8a8;
+    padding: 12px 16px;
+    border-radius:3px;
+    font-size:13px;
+    margin-top:16px;
+    display:none;
+  }
+
+  .results{ display:none; }
+  .scoreboard{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap:16px;
+    margin-bottom:28px;
+  }
+  @media(max-width:800px){ .scoreboard{ grid-template-columns:1fr; } }
+
+  .strategy-card{
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius:4px;
+    padding:20px;
+    position:relative;
+    overflow:hidden;
+  }
+  .strategy-card.winner{ border-color: var(--gold); }
+  .strategy-card.winner::before{
+    content:"FASTEST RESULT";
+    position:absolute;
+    top:10px;
+    right:-32px;
+    background: var(--gold);
+    color:#0d2818;
+    font-size:9px;
+    font-weight:700;
+    letter-spacing:1px;
+    padding:3px 36px;
+    transform: rotate(35deg);
+  }
+  .strategy-name{
+    font-family: var(--serif);
+    font-size:20px;
+    font-weight:700;
+    margin-bottom:4px;
+  }
+  .strategy-desc{ font-size:11px; color:#6b8577; margin-bottom:16px; }
+
+  .verdict-badge{
+    display:inline-block;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:1px;
+    padding:5px 12px;
+    border-radius:20px;
+    margin-bottom:14px;
+    text-transform:uppercase;
+  }
+  .verdict-positive{ background: rgba(74,158,110,0.2); color:#7fd9a0; border:1px solid #4a9e6e; }
+  .verdict-negative{ background: rgba(179,70,44,0.2); color:#f0a087; border:1px solid var(--red-card); }
+  .verdict-neutral{ background: rgba(217,164,65,0.2); color: var(--yellow-card); border:1px solid var(--yellow-card); }
+
+  .stat-row{
+    display:flex;
+    justify-content:space-between;
+    font-size:12px;
+    padding:7px 0;
+    border-top:1px solid var(--card-border);
+    color:#9fb8a8;
+  }
+  .stat-row b{ color: var(--chalk); font-weight:600; }
+
+  .reasoning{
+    margin-top:14px;
+    font-size:12px;
+    line-height:1.6;
+    color:#b8ccbe;
+    background:#0a1f14;
+    padding:12px;
+    border-radius:3px;
+    border-left:2px solid var(--gold);
+    max-height:160px;
+    overflow-y:auto;
+  }
+
+  .loading{
+    text-align:center;
+    padding:40px;
+    color:#9fb8a8;
+    font-size:13px;
+    display:none;
+  }
+  .ball{
+    width:24px; height:24px;
+    border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #fff, #ccc 60%, #999);
+    margin: 0 auto 14px;
+    animation: bounce 0.6s infinite alternate ease-in-out;
+  }
+  @keyframes bounce{
+    from{ transform: translateY(0); }
+    to{ transform: translateY(-14px); }
+  }
+
+  footer{
+    text-align:center;
+    padding: 40px 24px 0;
+    font-size:11px;
+    color:#4a5c50;
+  }
+  footer a{ color: var(--gold); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="kicker">⚡ Live Comparison Tool</div>
+  <h1>Prompt <span>Arena</span></h1>
+  <p class="subhead">Paste any piece of text — news, reviews, tweets, anything. Watch zero-shot, few-shot, and chain-of-thought prompting go head-to-head on the same model — live, scored on sentiment result, latency, and token cost.</p>
+</header>
+
+<main>
+
+  <div class="panel">
+    <div class="panel-title">Setup</div>
+    <div class="key-row">
+      <div>
+        <label for="apiKey">Groq API Key</label>
+        <input type="password" id="apiKey" placeholder="gsk_..." autocomplete="off">
+        <div class="hint">Stored only in your browser tab, sent directly to Groq. Get a free key at <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a></div>
+      </div>
+    </div>
+
+    <div class="field-gap">
+      <label for="newsInput">Any text — news, review, tweet, feedback, anything</label>
+      <textarea id="newsInput" placeholder="e.g. 'The new update completely broke my workflow, and support still hasn't responded after three days.'"></textarea>
+      <div class="presets" id="presetRow"></div>
+    </div>
+
+    <button class="run" id="runBtn">Run Comparison</button>
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <div class="loading" id="loadingBox">
+    <div class="ball"></div>
+    Running all three strategies through Llama 3.1 on Groq...
+  </div>
+
+  <div class="results" id="resultsBox">
+    <div class="panel-title" style="margin-bottom:16px;">Results</div>
+    <div class="scoreboard" id="scoreboard"></div>
+  </div>
+
+</main>
+
+<footer>
+  Powered by Llama 3.1 via Groq API · Live comparison of zero-shot, few-shot, and chain-of-thought prompting on sentiment analysis
+</footer>
+
+<script>
+const presets = [
+  "The new update completely broke my workflow, and support still hasn't responded after three days.",
+  "Absolutely blown away by the customer service today — they went above and beyond to fix my issue.",
+  "The company announced quarterly earnings in line with analyst expectations, with no major surprises.",
+  "After months of delays, the product finally shipped, but early reviews are mixed on build quality."
+];
+
+const presetRow = document.getElementById('presetRow');
+presets.forEach(p => {
+  const chip = document.createElement('div');
+  chip.className = 'preset-chip';
+  chip.textContent = p.slice(0, 42) + '…';
+  chip.onclick = () => { document.getElementById('newsInput').value = p; };
+  presetRow.appendChild(chip);
+});
+
+const strategies = [
+  {
+    id: 'zero',
+    name: 'Zero-Shot',
+    desc: 'Direct question, no examples, no reasoning steps',
+    buildPrompt: (text) => `Classify the sentiment of this text as Positive, Negative, or Neutral. Respond in this exact JSON format: {"sentiment": "...", "reasoning": "one sentence"}\n\nText: "${text}"`
+  },
+  {
+    id: 'few',
+    name: 'Few-Shot',
+    desc: 'Primed with 3 labeled examples before the task',
+    buildPrompt: (text) => `Classify text sentiment as Positive, Negative, or Neutral. Follow these examples:
+
+Text: "The team shipped the feature ahead of schedule and users are already praising the speed improvements."
+{"sentiment": "Positive", "reasoning": "Early delivery and positive user reaction are clearly good outcomes."}
+
+Text: "The app has crashed every day this week and I've lost hours of work as a result."
+{"sentiment": "Negative", "reasoning": "Repeated crashes causing real harm to the user is a clear setback."}
+
+Text: "The meeting has been rescheduled to next Tuesday at 10am."
+{"sentiment": "Neutral", "reasoning": "A factual scheduling update with no positive or negative framing."}
+
+Now classify this one. Respond in the same JSON format only.
+
+Text: "${text}"`
+  },
+  {
+    id: 'cot',
+    name: 'Chain-of-Thought',
+    desc: 'Prompted to reason step-by-step before concluding',
+    buildPrompt: (text) => `Analyze the sentiment of this text. Think step by step: first identify the key facts, then note any emotionally loaded language, then weigh whether the overall framing is Positive, Negative, or Neutral. Show brief reasoning, then give a final answer.
+
+Respond ONLY in this exact JSON format at the end: {"sentiment": "...", "reasoning": "your step-by-step reasoning condensed to 2 sentences"}
+
+Text: "${text}"`
+  }
+];
+
+function estimateTokens(str){
+  return Math.ceil(str.length / 4);
+}
+
+async function callGroq(apiKey, prompt){
+  const start = performance.now();
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey
+    },
+    body: JSON.stringify({
+      model: 'llama-3.1-8b-instant',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2,
+      max_tokens: 300
+    })
+  });
+  const elapsed = performance.now() - start;
+
+  if(!res.ok){
+    const errText = await res.text();
+    throw new Error(`Groq API error (${res.status}): ${errText.slice(0,200)}`);
+  }
+
+  const data = await res.json();
+  const content = data.choices?.[0]?.message?.content || '';
+  const usage = data.usage || {};
+
+  return { content, elapsed, usage };
+}
+
+function parseResponse(content){
+  // try to find a JSON object in the response
+  const match = content.match(/\{[\s\S]*\}/);
+  if(match){
+    try{
+      const parsed = JSON.parse(match[0]);
+      return {
+        sentiment: (parsed.sentiment || 'Unknown').trim(),
+        reasoning: (parsed.reasoning || content).trim()
+      };
+    }catch(e){ /* fall through */ }
+  }
+  return { sentiment: 'Unparsed', reasoning: content.trim() };
+}
+
+function verdictClass(sentiment){
+  const s = sentiment.toLowerCase();
+  if(s.includes('positive')) return 'verdict-positive';
+  if(s.includes('negative')) return 'verdict-negative';
+  return 'verdict-neutral';
+}
+
+document.getElementById('runBtn').addEventListener('click', async () => {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const text = document.getElementById('newsInput').value.trim();
+  const errorBox = document.getElementById('errorBox');
+  const loadingBox = document.getElementById('loadingBox');
+  const resultsBox = document.getElementById('resultsBox');
+  const scoreboard = document.getElementById('scoreboard');
+  const runBtn = document.getElementById('runBtn');
+
+  errorBox.style.display = 'none';
+  resultsBox.style.display = 'none';
+
+  if(!apiKey){
+    errorBox.textContent = 'Enter your Groq API key first — get one free at console.groq.com/keys';
+    errorBox.style.display = 'block';
+    return;
+  }
+  if(!text){
+    errorBox.textContent = 'Paste some football news text to analyze.';
+    errorBox.style.display = 'block';
+    return;
+  }
+
+  runBtn.disabled = true;
+  runBtn.textContent = 'Running...';
+  loadingBox.style.display = 'block';
+  scoreboard.innerHTML = '';
+
+  try{
+    const results = await Promise.all(strategies.map(async (strat) => {
+      const prompt = strat.buildPrompt(text);
+      const { content, elapsed, usage } = await callGroq(apiKey, prompt);
+      const parsed = parseResponse(content);
+      return {
+        ...strat,
+        ...parsed,
+        elapsed,
+        promptTokens: usage.prompt_tokens || estimateTokens(prompt),
+        completionTokens: usage.completion_tokens || estimateTokens(content),
+        totalTokens: usage.total_tokens || (estimateTokens(prompt) + estimateTokens(content))
+      };
+    }));
+
+    const fastest = results.reduce((a,b) => a.elapsed < b.elapsed ? a : b);
+
+    results.forEach(r => {
+      const card = document.createElement('div');
+      card.className = 'strategy-card' + (r.id === fastest.id ? ' winner' : '');
+      card.innerHTML = `
+        <div class="strategy-name">${r.name}</div>
+        <div class="strategy-desc">${r.desc}</div>
+        <div class="verdict-badge ${verdictClass(r.sentiment)}">${r.sentiment}</div>
+        <div class="stat-row"><span>Latency</span><b>${(r.elapsed/1000).toFixed(2)}s</b></div>
+        <div class="stat-row"><span>Prompt tokens</span><b>${r.promptTokens}</b></div>
+        <div class="stat-row"><span>Completion tokens</span><b>${r.completionTokens}</b></div>
+        <div class="stat-row"><span>Total tokens</span><b>${r.totalTokens}</b></div>
+        <div class="reasoning">${r.reasoning}</div>
+      `;
+      scoreboard.appendChild(card);
+    });
+
+    resultsBox.style.display = 'block';
+  }catch(err){
+    errorBox.textContent = err.message || 'Something went wrong calling the Groq API.';
+    errorBox.style.display = 'block';
+  }finally{
+    loadingBox.style.display = 'none';
+    runBtn.disabled = false;
+    runBtn.textContent = 'Kick Off Comparison';
+  }
+});
+</script>
+
+</body>
+</html>
